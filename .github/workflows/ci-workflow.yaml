@@ -1,3 +1,47 @@
+# name: CI
+
+# on:
+#   pull_request:
+#     branches: [main]
+
+# jobs:
+#   test:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Start Minikube
+#         uses: medyagh/setup-minikube@latest
+#         with:
+#           minikube-version: latest
+#           kubernetes-version: v1.28.0
+
+#       - name: Build images
+#         run: |
+#           chmod +x ./scripts/minikube-build-images.sh
+#           ./scripts/minikube-build-images.sh
+
+#       - name: Deploy to Minikube
+#         run: |
+#           kubectl apply -f ./k8s-manifests/namespace/namespace.yaml # namespace first because when i run recursive, its not in the right order
+#           kubectl apply -R -f ./k8s-manifests/
+#       - name: Run smoke test
+#         run: |
+#           chmod +x ./scripts/smoke-test.sh
+#           ./scripts/smoke-test.sh
+
+#       - name: Show logs on failure
+#         if: failure()
+#         run: |
+#           echo "=== Pod Status ==="
+#           kubectl get pods -n demo
+#           echo "=== Server Logs ==="
+#           kubectl logs -n demo -l app=server --tail=50
+#           echo "=== Consumer Logs ==="
+#           kubectl logs -n demo -l app=consumer --tail=50
+
 name: CI
 
 on:
@@ -5,9 +49,41 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  unit_tests:
+    name: Unit tests (server + client)
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      # Setup Node without caching
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # -------- Server --------
+      - name: Install deps (server)
+        working-directory: server
+        run: npm install
+
+      - name: Run unit tests (server)
+        working-directory: server
+        run: npm test
+
+      # -------- Client --------
+      - name: Install deps (client)
+        working-directory: client
+        run: npm install
+
+      - name: Run unit tests (client)
+        working-directory: client
+        run: npm test
+
+  smoke_minikube:
+    name: Minikube smoke test
+    runs-on: ubuntu-latest
+    needs: [unit_tests]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,8 +101,9 @@ jobs:
 
       - name: Deploy to Minikube
         run: |
-          kubectl apply -f ./k8s-manifests/namespace/namespace.yaml # namespace first because when i run recursive, its not in the right order
+          kubectl apply -f ./k8s-manifests/namespace/namespace.yaml
           kubectl apply -R -f ./k8s-manifests/
+
       - name: Run smoke test
         run: |
           chmod +x ./scripts/smoke-test.sh
@@ -36,8 +113,10 @@ jobs:
         if: failure()
         run: |
           echo "=== Pod Status ==="
-          kubectl get pods -n demo
+          kubectl get pods -n demo -o wide || true
+          echo "=== Describe Pods ==="
+          kubectl describe pods -n demo || true
           echo "=== Server Logs ==="
-          kubectl logs -n demo -l app=server --tail=50
+          kubectl logs -n demo -l app=server --tail=200 || true
           echo "=== Consumer Logs ==="
-          kubectl logs -n demo -l app=consumer --tail=50
+          kubectl logs -n demo -l app=consumer --tail=200 || true
