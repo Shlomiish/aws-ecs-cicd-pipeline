@@ -56,27 +56,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # -------- Server --------
-      - name: Setup Node (server)
+      # Setup Node without caching
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: npm
-          cache-dependency-path: server/package-lock.json
 
+      # -------- Server --------
       - name: Install deps (server)
         working-directory: server
-        run: npm ci
+        run: npm install
 
       - name: Run unit tests (server)
         working-directory: server
         run: npm test
 
       # -------- Client --------
-      # Don't set up Node again, just use different working directory
       - name: Install deps (client)
         working-directory: client
-        run: npm ci
+        run: npm install
 
       - name: Run unit tests (client)
         working-directory: client
