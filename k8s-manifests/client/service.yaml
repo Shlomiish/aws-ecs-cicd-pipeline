@@ -5,10 +5,9 @@ metadata:
   namespace: demo
 spec:
   selector:
-    app: client
-  type: NodePort
+    app: client # route traffic to Pods labeled app=client
   ports:
     - name: http
       port: 80
       targetPort: 80
-      nodePort: 30073
+  type: NodePort # expose outside the cluster via Node IP + the port

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: client
-          image: demo-client:1.0
-          imagePullPolicy: IfNotPresent
+          image: demo-client:1 # image already contains nginx.conf and built frontend file
+          imagePullPolicy: IfNotPresent # use local image if available
           ports:
-            - containerPort: 80
+            - containerPort: 80 # nginx listens on port 80 inside the container

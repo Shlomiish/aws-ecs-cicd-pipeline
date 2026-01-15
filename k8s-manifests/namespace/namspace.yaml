@@ -1,0 +1,4 @@
+apiVersion: v1
+kind: Namespace # a logical "folder" to isolate resources (pods/services/etc.)
+metadata:
+  name: demo # all resources referencing "namespace: demo" will live here
