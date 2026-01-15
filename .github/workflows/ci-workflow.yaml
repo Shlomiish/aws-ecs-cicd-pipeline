@@ -121,6 +121,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch full history for gitleaks
 
       - name: Scan for secrets
         uses: gitleaks/gitleaks-action@v2
