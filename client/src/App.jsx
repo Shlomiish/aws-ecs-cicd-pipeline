@@ -1,44 +1,43 @@
 import { useState } from 'react';
 
-//const API_BASE = 'http://localhost:8080'; // עובד כי אתה ניגש מהדפדפן של המחשב שלך
-
-const API_BASE = '';
-
 function pretty(obj) {
-  return JSON.stringify(obj, null, 2);
+  // helper to format objects as readable JSON text
+  return JSON.stringify(obj, null, 2); // pretty JSON with 2-space indentation
 }
 
 export default function App() {
-  const [loading, setLoading] = useState(false);
-  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(false); // state that when on every change to true/false, the page is rerender
+  const [events, setEvents] = useState([]); // stores the history of API responses to render on the page
 
   async function callApi(path, label) {
-    setLoading(true);
+    // call backend endpoint and store result as an event
+    setLoading(true); // mark UI as "loading"
     try {
-      const res = await fetch(`${API_BASE}${path}`);
+      const res = await fetch(`${path}`); // If fetch receives a path starting with / The browser automatically connects it to the address from which the site is loaded
       const json = await res.json();
 
       setEvents((prev) => [
+        // with prev (something build in in react) i can save the last element that added to the array to the first line
         {
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           label,
           at: new Date().toLocaleString(),
           json,
         },
-        ...prev,
+        ...prev, // prepend so newest event appears first
       ]);
     } catch (e) {
       setEvents((prev) => [
         {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, // unique-ish id
           label: 'Error',
           at: new Date().toLocaleString(),
           json: { ok: false, error: String(e) },
         },
-        ...prev,
+        ...prev, // keep older events
       ]);
     } finally {
-      setLoading(false);
+      setLoading(false); // stop loading no matter success or failure
     }
   }
 
@@ -46,9 +45,8 @@ export default function App() {
     <div className='page'>
       <header className='header'>
         <h1>Kafka Button Demo</h1>
-        <p>Click a button → fetch JSON → render UI → Kafka event produced.</p>
+        <p>Click a button → fetch JSON → render UI → Kafka event produced.</p>{' '}
       </header>
-
       <div className='buttons'>
         <button
           className='btn primary'
@@ -57,7 +55,6 @@ export default function App() {
         >
           Button 1
         </button>
-
         <button
           className='btn secondary'
           disabled={loading}
@@ -66,13 +63,11 @@ export default function App() {
           Button 2
         </button>
       </div>
-
       <section className='panel'>
         <div className='panelHeader'>
           <h2>Responses</h2>
           <span className={loading ? 'badge on' : 'badge'}>{loading ? 'Loading...' : 'Idle'}</span>
         </div>
-
         {events.length === 0 ? (
           <div className='empty'>No responses yet. Click a button.</div>
         ) : (
