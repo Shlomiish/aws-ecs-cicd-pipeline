@@ -179,10 +179,17 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # token for auth to let the runner to send the result that Action collect, and send via api
         with:
           args: >
+<<<<<<< Updated upstream
             -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }} # Unique project key
             -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} # SonarCloud organization
             -Dsonar.sources=server,client # Source directories to analyze
             -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/** # Exclude generated files
+=======
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} 
+            -Dsonar.sources=server,client 
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**
+>>>>>>> Stashed changes
 
   smoke_minikube:
     name: Minikube smoke test
