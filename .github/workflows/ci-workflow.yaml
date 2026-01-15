@@ -24,7 +24,7 @@ jobs:
           ./scripts/minikube-build-images.sh
 
       - name: Deploy to Minikube
-        run: kubectl apply -f k8s-manifests/ # recursive run on all the folders inside
+        run: kubectl apply -R -f k8s-manifests/ # recursive run on all the folders inside
 
       - name: Run smoke test
         run: |
