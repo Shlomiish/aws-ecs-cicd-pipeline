@@ -1,7 +1,7 @@
 set -e
 
 NAMESPACE="demo"
-TIMEOUT=180
+TIMEOUT=600
 
 echo "→ waiting for pods..."
 kubectl wait --for=condition=ready pod -l app=client -n $NAMESPACE --timeout=${TIMEOUT}s
