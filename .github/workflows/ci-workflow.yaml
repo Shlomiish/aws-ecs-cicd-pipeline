@@ -1,8 +1,6 @@
-name: Minikube Smoke Test
+name: CI
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
     branches: [main]
 
@@ -22,19 +20,17 @@ jobs:
 
       - name: Build images
         run: |
-          eval $(minikube docker-env)
-          docker build -t demo-server:1 ./server
-          docker build -t demo-consumer:1 ./consumer
-          docker build -t demo-client:1 ./client
-          docker images | grep demo
+          chmod +x ./scripts/minikube-build-images.sh
+          ./scripts/minikube-build-images.sh
 
       - name: Deploy to Minikube
-        run: kubectl apply -f k8s-manifests/ # recursive run on all the folders inside
-
+        run: |
+          kubectl apply -f ./k8s-manifests/namespace/namespace.yaml # namespace first because when i run recursive, its not in the right order
+          kubectl apply -R -f ./k8s-manifests/
       - name: Run smoke test
         run: |
-          chmod +x smoke-test.sh
-          ./smoke-test.sh
+          chmod +x ./scripts/smoke-test.sh
+          ./scripts/smoke-test.sh
 
       - name: Show logs on failure
         if: failure()

@@ -27,7 +27,7 @@ spec:
               echo "Kafka is up, starting server"
       containers:
         - name: server
-          image: demo-server
+          image: demo-server:1
           imagePullPolicy: IfNotPresent # don't pull if already present on the node
           ports:
             - containerPort: 8080

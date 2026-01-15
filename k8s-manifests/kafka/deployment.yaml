@@ -13,6 +13,7 @@ spec:
       labels:
         app: kafka # the label that will be added to the created pods
     spec:
+      enableServiceLinks: false
       initContainers: # containers that must finish successfully before main containers (in here, kafka) start
         - name: wait-for-zookeeper
           image: busybox:1.36 # lightweight image for simple shell that before the kafka container will be up, first check if zookeeper is running
