@@ -143,26 +143,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  sonarqube_scan:
-    name: Static Analysis (SonarQube)
-    runs-on: ubuntu-latest
-    needs: [unit_tests]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Sonar needs full history for best results
+  sonarcloud_scan:
+  name: Static Analysis (SonarCloud)
+  runs-on: ubuntu-latest
+  needs: [unit_tests]
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          args: >
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
-            -Dsonar.sources=server,client
-            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@v2
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+          -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+          -Dsonar.sources=server,client
+          -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**
 
   smoke_minikube:
     name: Minikube smoke test
