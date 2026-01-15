@@ -73,13 +73,7 @@ jobs:
         run: npm test
 
       # -------- Client --------
-      - name: Setup Node (client)
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: npm
-          cache-dependency-path: client/package-lock.json
-
+      # Don't set up Node again, just use different working directory
       - name: Install deps (client)
         working-directory: client
         run: npm ci
