@@ -1,13 +1,14 @@
 {
-  "name": "demo-consumer",
+  "name": "consumer",
   "version": "1.0.0",
-  "main": "consumer.js",
   "type": "module",
+  "main": "consumer.js",
   "scripts": {
-    "start": "node consumer.js"
+    "start": "node consumer.js",
+    "test": "echo \"no tests\""
   },
   "dependencies": {
-    "dotenv": "^17.2.3",
-    "kafkajs": "^2.2.4"
+    "@aws-sdk/client-sqs": "^3.0.0",
+    "dotenv": "^16.0.0"
   }
 }

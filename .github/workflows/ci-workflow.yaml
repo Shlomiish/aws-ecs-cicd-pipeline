@@ -1,3 +1,116 @@
+# name: CI
+
+# on:
+#   pull_request:
+#     branches: [main]
+
+# jobs:
+#   unit_tests:
+#     name: Unit tests (server + client) # the way we'll see it in the github ui
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code # pull repository code into the runner
+#         uses: actions/checkout@v4 # command that ready-made that create temporary token
+
+#       - name: Setup Node # install Node.js runtime on the runner
+#         uses: actions/setup-node@v4 # its a ready package from github that installs Node.js on the runner, adds it to the PATH in linux, and makes npm/npx available for the next steps.
+#         with:
+#           node-version: 18 # explicit Node.js version for consistency
+
+#       # -------- Server --------
+#       - name: Install deps (server)
+#         working-directory: server
+#         run: npm install # (package.json)
+
+#       - name: Run unit tests (server)
+#         working-directory: server
+#         run: npm test
+
+#       # -------- Client --------
+#       - name: Install deps (client)
+#         working-directory: client
+#         run: npm install
+
+#       - name: Run unit tests (client)
+#         working-directory: client
+#         run: npm test
+
+#   secrets_scan:
+#     name: Secret scanning (gitleaks)
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0 # tells github to fetch the full git history so secret scanning can detect leaks from old commits
+
+#       - name: Scan for secrets
+#         uses: gitleaks/gitleaks-action@v2
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # gitleaks needs access to the repository and PR metadata, which requires authentication
+
+#   sonarcloud_scan:
+#     name: Static Analysis (SonarCloud)
+#     runs-on: ubuntu-latest
+#     needs: [unit_tests] # run only if unit tests pass
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+
+#       - name: SonarCloud Scan # run static analysis using SonarCloud
+#         uses: SonarSource/sonarcloud-github-action@v3
+#         env:
+#           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # token for auth to let the runner to send the result that Action collect, and send via api
+#         with:
+#           args: >
+#             -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+#             -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+#             -Dsonar.sources=server,client
+#             -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**
+
+#   smoke_minikube:
+#     name: Minikube smoke test
+#     runs-on: ubuntu-latest
+#     needs: [unit_tests, secrets_scan, sonarcloud_scan] # run only if all previous jobs succeed
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Start Minikube
+#         uses: medyagh/setup-minikube@latest
+#         with:
+#           minikube-version: latest
+#           kubernetes-version: v1.28.0
+
+#       - name: Build images
+#         run: |
+#           chmod +x ./scripts/minikube-build-images.sh # Ensure script is executable
+#           ./scripts/minikube-build-images.sh # Build images inside Minikube
+
+#       - name: Deploy to Minikube
+#         run: |
+#           kubectl apply -f ./k8s-manifests/namespace/namespace.yaml # Create namespace first
+#           kubectl apply -R -f ./k8s-manifests/ # Apply all manifests
+
+#       - name: Run smoke test
+#         run: |
+#           chmod +x ./scripts/smoke-test.sh # Ensure script is executable
+#           ./scripts/smoke-test.sh # Run basic end-to-end checks
+
+#       - name: Show logs on failure
+#         if: failure() # run only if the job fails
+#         run: |
+#           echo "=== Pod Status ===" # Show pod status
+#           kubectl get pods -n demo -o wide || true # Do not fail if command errors
+#           echo "=== Describe Pods ===" # Detailed pod information
+#           kubectl describe pods -n demo || true
+#           echo "=== Server Logs ===" # Backend logs
+#           kubectl logs -n demo -l app=server --tail=200 || true
+#           echo "=== Consumer Logs ===" # Consumer logs
+#           kubectl logs -n demo -l app=consumer --tail=200 || true
+
 name: CI
 
 on:
@@ -108,5 +221,3 @@ jobs:
           kubectl describe pods -n demo || true
           echo "=== Server Logs ===" # Backend logs
           kubectl logs -n demo -l app=server --tail=200 || true
-          echo "=== Consumer Logs ===" # Consumer logs
-          kubectl logs -n demo -l app=consumer --tail=200 || true
