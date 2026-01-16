@@ -1,10 +1,10 @@
 name: CD
 
 on:
-  workflow_run:
-    #workflows: ['CI']
-    # types: [completed]
-    branches: [main]
+  #workflow_run:
+  #workflows: ['CI']
+  # types: [completed]
+  #branches: [main]
   workflow_dispatch: # ← Same level as workflow_run
 
 env:
