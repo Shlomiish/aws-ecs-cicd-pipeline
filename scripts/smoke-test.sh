@@ -63,6 +63,7 @@
 # echo "✓ smoke test passed"
 
 
+#!/bin/bash
 set -e
 
 NAMESPACE="demo"
@@ -71,6 +72,7 @@ TIMEOUT=600
 echo "→ waiting for pods..."
 kubectl wait --for=condition=ready pod -l app=client -n "$NAMESPACE" --timeout="${TIMEOUT}s"
 kubectl wait --for=condition=ready pod -l app=server -n "$NAMESPACE" --timeout="${TIMEOUT}s"
+kubectl wait --for=condition=ready pod -l app=consumer -n "$NAMESPACE" --timeout="${TIMEOUT}s"
 echo "✓ pods ready"
 
 MINIKUBE_IP=$(minikube ip)
@@ -113,6 +115,16 @@ for i in {1..60}; do
   fi
 done
 # -------------------------------------------------------------
+
+echo "→ testing client at $BASE_URL..."
+CLIENT_RESPONSE=$(curl -sf "$BASE_URL")
+[ -z "$CLIENT_RESPONSE" ] && echo "✗ client failed" && exit 1
+echo "✓ client ok (${#CLIENT_RESPONSE} bytes)"
+
+echo "→ testing api at $BASE_URL/api/button1..."
+BUTTON1=$(curl -sf "$BASE_URL/api/button1")
+echo "$BUTTON1" | grep -q '"ok":true' || { echo "✗ api failed"; exit 1; }
+echo "✓ api ok: $BUTTON1"
 
 echo ""
 echo "✓ smoke test passed"
