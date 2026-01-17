@@ -77,7 +77,7 @@
 # echo "✓ api ok: $BUTTON1"
 
 # echo ""
-# echo "✓ smoke test passed"
+# echo "✓ smoke test passed" 
 
 
 #!/bin/bash
