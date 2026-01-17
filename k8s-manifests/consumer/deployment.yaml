@@ -1,3 +1,42 @@
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: consumer
+#   namespace: demo
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: consumer
+#   template:
+#     metadata:
+#       labels:
+#         app: consumer
+#     spec:
+#       initContainers:
+#         - name: wait-for-kafka
+#           image: busybox:1.36
+#           command:
+#             - sh
+#             - -c
+#             - |
+#               echo "Waiting for Kafka at kafka:29092..."
+#               until nc -z kafka 29092; do # Retry until TCP connection works
+#                 sleep 2
+#               done
+#               echo "Kafka is up, starting consumer"
+#       containers:
+#         - name: consumer
+#           image: demo-consumer:1
+#           imagePullPolicy: IfNotPresent
+#           env:
+#             - name: KAFKA_BROKER
+#               value: 'kafka:29092'
+#             - name: KAFKA_TOPIC
+#               value: 'button-events'
+#             - name: KAFKA_GROUP_ID
+#               value: 'demo-consumer-group'
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,26 +52,7 @@ spec:
       labels:
         app: consumer
     spec:
-      initContainers:
-        - name: wait-for-kafka
-          image: busybox:1.36
-          command:
-            - sh
-            - -c
-            - |
-              echo "Waiting for Kafka at kafka:29092..."
-              until nc -z kafka 29092; do # Retry until TCP connection works
-                sleep 2
-              done
-              echo "Kafka is up, starting consumer"
       containers:
         - name: consumer
           image: demo-consumer:1
           imagePullPolicy: IfNotPresent
-          env:
-            - name: KAFKA_BROKER
-              value: 'kafka:29092'
-            - name: KAFKA_TOPIC
-              value: 'button-events'
-            - name: KAFKA_GROUP_ID
-              value: 'demo-consumer-group'
