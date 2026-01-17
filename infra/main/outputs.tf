@@ -64,3 +64,9 @@ output "cloudfront_domain_name" {
 output "sqs_queue_url" {
   value = module.sqs.queue_url
 }
+
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID"
+  value       = module.cloudfront.cloudfront_distribution_id
+}
