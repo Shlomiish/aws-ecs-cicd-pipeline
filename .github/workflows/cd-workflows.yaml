@@ -262,12 +262,12 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
-        working-directory: terraform/main
+        working-directory: terraform/infra/main
         run: terraform init
 
       - name: Terraform Apply
         id: terraform
-        working-directory: terraform/main
+        working-directory: terraform/infra/main
         run: |
           terraform apply -auto-approve \
             -var="server_image=${{ steps.build.outputs.server_image }}" \
