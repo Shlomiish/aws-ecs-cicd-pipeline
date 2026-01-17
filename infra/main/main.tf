@@ -1,5 +1,5 @@
 module "vpc" {
-  source = "../../modules/network/vpc"
+  source = "../modules/network/vpc"
 
   name                 = var.name
   vpc_cidr             = var.vpc_cidr
@@ -9,7 +9,7 @@ module "vpc" {
 }
 
 module "logs" {
-  source = "../../modules/observability/cloudwatch_logs"
+  source = "../modules/observability/cloudwatch_logs"
 
   name              = var.name
   retention_in_days = var.log_retention_days
@@ -17,7 +17,7 @@ module "logs" {
 
 
 module "ecr" {
-  source = "../../modules/compute/ecr"
+  source = "../modules/compute/ecr"
 
   name         = var.name
   repositories = var.ecr_repositories
@@ -27,12 +27,12 @@ module "ecr" {
 }
 
 module "iam" {
-  source = "../../modules/security/iam"
+  source = "../modules/security/iam"
   name   = var.name
 }
 
 module "alb" {
-  source = "../../modules/loadbalancing/alb"
+  source = "../modules/loadbalancing/alb"
 
   name              = var.name
   vpc_id            = module.vpc.vpc_id
@@ -42,12 +42,12 @@ module "alb" {
 
 
 module "sqs" {
-  source = "../../modules/messaging/sqs"
+  source = "../modules/messaging/sqs"
   name   = var.name
 }
 
 module "ecs_server" {
-  source = "../../modules/compute/ecs_service"
+  source = "../modules/compute/ecs_service"
 
   name              = var.name
   region            = var.aws_region
@@ -72,7 +72,7 @@ module "ecs_server" {
 }
 
 module "ecs_consumer" {
-  source = "../../modules/compute/ecs_worker"
+  source = "../modules/compute/ecs_worker"
 
   name   = var.name
   region = var.aws_region
@@ -99,13 +99,13 @@ module "ecs_consumer" {
 
 
 module "client_bucket" {
-  source = "../../modules/edge/s3_static_site"
+  source = "../modules/edge/s3_static_site"
 
   bucket_name = var.client_bucket_name
 }
 
 module "cloudfront" {
-  source = "../../modules/edge/cloudfront"
+  source = "../modules/edge/cloudfront"
 
   name                        = var.name
   alb_dns_name                = module.alb.alb_dns_name
@@ -116,22 +116,40 @@ module "cloudfront" {
 
 
 
-
-resource "aws_iam_role_policy" "sqs_access" {
-  name = "${var.name}-sqs-access"
-  role = module.iam.task_role_name
-
+resource "aws_iam_policy" "sqs_access" {
+  name   = "${var.name}-sqs-access"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
-      Action = [
-        "sqs:SendMessage",
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sqs:GetQueueAttributes"
-      ]
+      Effect   = "Allow"
+      Action   = ["sqs:SendMessage","sqs:ReceiveMessage","sqs:DeleteMessage","sqs:GetQueueAttributes"]
       Resource = module.sqs.queue_arn
     }]
   })
 }
+
+resource "aws_iam_role_policy_attachment" "sqs_access" {
+  role       = module.iam.task_role_name
+  policy_arn = aws_iam_policy.sqs_access.arn
+}
+
+
+
+# resource "aws_iam_role_policy" "sqs_access" {
+#   name = "${var.name}-sqs-access"
+#   role = module.iam.task_role_name
+
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [{
+#       Effect = "Allow"
+#       Action = [
+#         "sqs:SendMessage",
+#         "sqs:ReceiveMessage",
+#         "sqs:DeleteMessage",
+#         "sqs:GetQueueAttributes"
+#       ]
+#       Resource = module.sqs.queue_arn
+#     }]
+#   })
+# }
