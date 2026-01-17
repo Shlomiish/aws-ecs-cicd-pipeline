@@ -261,6 +261,16 @@ jobs:
           terraform_version: 1.6.0
           terraform_wrapper: false
 
+      - name: Create terraform.tfvars
+        working-directory: infra/main
+        run: |
+          cat > terraform.tfvars << 'EOF'
+          ${{ secrets.TERRAFORM_TFVARS }}
+
+          server_image = "${{ steps.build.outputs.server_image }}"
+          consumer_image = "${{ steps.build.outputs.consumer_image }}"
+          EOF
+
       - name: Terraform Init
         working-directory: infra/main
         run: terraform init
@@ -269,9 +279,7 @@ jobs:
         id: terraform
         working-directory: infra/main
         run: |
-          terraform apply -auto-approve \
-            -var="server_image=${{ steps.build.outputs.server_image }}" \
-            -var="consumer_image=${{ steps.build.outputs.consumer_image }}"
+          terraform apply -auto-approve
 
           CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id)
           echo "cloudfront_distribution_id=$CLOUDFRONT_ID" >> $GITHUB_OUTPUT
