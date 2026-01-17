@@ -1,20 +1,167 @@
+# name: CD
+
+# on:
+#   #workflow_run:
+#   #workflows: ['CI']
+#   # types: [completed]
+#   #branches: [main]
+#   workflow_dispatch: # ← Same level as workflow_run
+
+# env:
+#   AWS_REGION: eu-north-1
+
+# jobs:
+#   deploy:
+#     name: Build, Test & Deploy
+#     runs-on: ubuntu-latest
+#     #if: ${{ github.event.workflow_run.conclusion == 'success' }}
+#     steps:
+#       # ==================== SETUP ====================
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Login to Amazon ECR
+#         id: login-ecr
+#         uses: aws-actions/amazon-ecr-login@v2
+
+#       - name: Setup Node
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 18
+
+#       # ==================== BUILD IMAGES ====================
+#       - name: Build Docker images
+#         id: build
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: ${{ github.sha }}
+#         run: |
+#           # Build all images with commit hash
+#           docker build -t $ECR_REGISTRY/test-app/server:$IMAGE_TAG -t $ECR_REGISTRY/test-app/server:latest ./server
+#           docker build -t $ECR_REGISTRY/test-app/consumer:$IMAGE_TAG -t $ECR_REGISTRY/test-app/consumer:latest ./consumer
+
+#           # Output for later steps
+#           echo "server_image=$ECR_REGISTRY/demo-server:$IMAGE_TAG" >> $GITHUB_OUTPUT
+#           echo "consumer_image=$ECR_REGISTRY/demo-consumer:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+#       # ==================== TEST IMAGES ====================
+#       - name: Test server image
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: ${{ github.sha }}
+#         run: |
+#           # Quick smoke test - ensure image runs
+#           docker run --rm $ECR_REGISTRY/demo-server:$IMAGE_TAG node --version
+
+#       - name: Test consumer image
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: ${{ github.sha }}
+#         run: |
+#           docker run --rm $ECR_REGISTRY/demo-consumer:$IMAGE_TAG node --version
+
+#       - name: Test client image
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: ${{ github.sha }}
+#         run: |
+#           docker run --rm $ECR_REGISTRY/demo-client:$IMAGE_TAG ls /usr/share/nginx/html
+
+#       # ==================== PUSH IMAGES ====================
+#       - name: Push images to ECR
+#         env:
+#           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#           IMAGE_TAG: ${{ github.sha }}
+#         run: |
+#           # Push commit-tagged versions
+#           docker push $ECR_REGISTRY/test-app/server:$IMAGE_TAG
+#           docker push $ECR_REGISTRY/test-app/consumer:$IMAGE_TAG
+
+#           # Push latest tags
+#           docker push $ECR_REGISTRY/test-app/server:latest
+#           docker push $ECR_REGISTRY/test-app/consumer:latest
+
+#       # ==================== DEPLOY CLIENT TO S3 ====================
+#       - name: Build client
+#         working-directory: ./client
+#         run: |
+#           npm ci
+#           npm run build
+
+#       - name: Upload client build to S3
+#         run: |
+#           aws s3 sync ./client/dist s3://$S3_BUCKET_NAME/ --delete
+
+#       - name: Deploy to S3
+#         run: |
+#           aws s3 sync ./client-dist s3://${{ secrets.S3_BUCKET_NAME }} --delete
+
+#       - name: Invalidate CloudFront
+#         run: |
+#           aws cloudfront create-invalidation \
+#             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+#             --paths "/*"
+
+#       # ==================== DEPLOY INFRASTRUCTURE ====================
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v3
+#         with:
+#           terraform_version: 1.6.0
+
+#       - name: Terraform Init
+#         working-directory: terraform/environments/prod
+#         run: terraform init
+
+#       - name: Terraform Apply
+#         working-directory: terraform/environments/prod
+#         run: |
+#           terraform apply -auto-approve \
+#             -var="server_image=${{ steps.build.outputs.server_image }}" \
+#             -var="consumer_image=${{ steps.build.outputs.consumer_image }}"
+
+#       # ==================== VERIFY DEPLOYMENT ====================
+#       - name: Wait for ECS deployment
+#         run: sleep 60
+
+#       - name: Health checks
+#         run: |
+#           # API health check
+#           curl -f ${{ secrets.API_URL }}/api/health || exit 1
+
+#           # Client health check
+#           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.CLIENT_URL }})
+#           [ "$HTTP_CODE" = "200" ] || exit 1
+
+#           # API smoke test
+#           curl -f ${{ secrets.API_URL }}/api/button1 | grep -q '"ok":true' || exit 1
+
+#           echo "✅ All health checks passed"
+
 name: CD
 
 on:
-  #workflow_run:
-  #workflows: ['CI']
-  # types: [completed]
-  #branches: [main]
-  workflow_dispatch: # ← Same level as workflow_run
+  # workflow_run:
+  #   workflows: ["CI"]
+  #   types: [completed]
+  #   branches: [main]
+  workflow_dispatch:
 
 env:
-  AWS_REGION: eu-north-1
+  AWS_REGION: ${{ vars.AWS_REGION }}
 
 jobs:
   deploy:
     name: Build, Test & Deploy
     runs-on: ubuntu-latest
-    #if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
     steps:
       # ==================== SETUP ====================
       - name: Checkout code
@@ -31,6 +178,16 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Ensure ECR repositories exist
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: |
+          set -e
+          for repo in test-app/server test-app/consumer test-app/client; do
+            aws ecr describe-repositories --repository-names "$repo" --region "$AWS_REGION" >/dev/null 2>&1 \
+              || aws ecr create-repository --repository-name "$repo" --region "$AWS_REGION" >/dev/null
+          done
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -43,14 +200,13 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Build all images with commit hash
-          docker build -t $ECR_REGISTRY/demo-server:$IMAGE_TAG -t $ECR_REGISTRY/demo-server:latest ./server
-          docker build -t $ECR_REGISTRY/demo-consumer:$IMAGE_TAG -t $ECR_REGISTRY/demo-consumer:latest ./consumer
-          docker build -t $ECR_REGISTRY/demo-client:$IMAGE_TAG -t $ECR_REGISTRY/demo-client:latest ./client
+          docker build -t $ECR_REGISTRY/test-app/server:$IMAGE_TAG   -t $ECR_REGISTRY/test-app/server:latest   ./server
+          docker build -t $ECR_REGISTRY/test-app/consumer:$IMAGE_TAG -t $ECR_REGISTRY/test-app/consumer:latest ./consumer
+          docker build -t $ECR_REGISTRY/test-app/client:$IMAGE_TAG   -t $ECR_REGISTRY/test-app/client:latest   ./client
 
-          # Output for later steps
-          echo "server_image=$ECR_REGISTRY/demo-server:$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "consumer_image=$ECR_REGISTRY/demo-consumer:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "server_image=$ECR_REGISTRY/test-app/server:$IMAGE_TAG"     >> $GITHUB_OUTPUT
+          echo "consumer_image=$ECR_REGISTRY/test-app/consumer:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "client_image=$ECR_REGISTRY/test-app/client:$IMAGE_TAG"     >> $GITHUB_OUTPUT
 
       # ==================== TEST IMAGES ====================
       - name: Test server image
@@ -58,22 +214,21 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Quick smoke test - ensure image runs
-          docker run --rm $ECR_REGISTRY/demo-server:$IMAGE_TAG node --version
+          docker run --rm $ECR_REGISTRY/test-app/server:$IMAGE_TAG node --version
 
       - name: Test consumer image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker run --rm $ECR_REGISTRY/demo-consumer:$IMAGE_TAG node --version
+          docker run --rm $ECR_REGISTRY/test-app/consumer:$IMAGE_TAG node --version
 
       - name: Test client image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker run --rm $ECR_REGISTRY/demo-client:$IMAGE_TAG ls /usr/share/nginx/html
+          docker run --rm $ECR_REGISTRY/test-app/client:$IMAGE_TAG ls /usr/share/nginx/html
 
       # ==================== PUSH IMAGES ====================
       - name: Push images to ECR
@@ -81,30 +236,24 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Push commit-tagged versions
-          docker push $ECR_REGISTRY/demo-server:$IMAGE_TAG
-          docker push $ECR_REGISTRY/demo-consumer:$IMAGE_TAG
-          docker push $ECR_REGISTRY/demo-client:$IMAGE_TAG
+          docker push $ECR_REGISTRY/test-app/server:$IMAGE_TAG
+          docker push $ECR_REGISTRY/test-app/consumer:$IMAGE_TAG
+          docker push $ECR_REGISTRY/test-app/client:$IMAGE_TAG
 
-          # Push latest tags
-          docker push $ECR_REGISTRY/demo-server:latest
-          docker push $ECR_REGISTRY/demo-consumer:latest
-          docker push $ECR_REGISTRY/demo-client:latest
+          docker push $ECR_REGISTRY/test-app/server:latest
+          docker push $ECR_REGISTRY/test-app/consumer:latest
+          docker push $ECR_REGISTRY/test-app/client:latest
 
       # ==================== DEPLOY CLIENT TO S3 ====================
-      - name: Extract client build from image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+      - name: Build client (static)
+        working-directory: ./client
         run: |
-          # Extract built files from Docker image
-          docker create --name temp-client $ECR_REGISTRY/demo-client:$IMAGE_TAG
-          docker cp temp-client:/usr/share/nginx/html ./client-dist
-          docker rm temp-client
+          npm ci
+          npm run build
 
-      - name: Deploy to S3
+      - name: Deploy client to S3
         run: |
-          aws s3 sync ./client-dist s3://${{ secrets.S3_BUCKET_NAME }} --delete
+          aws s3 sync ./client/dist s3://${{ secrets.S3_BUCKET_NAME }}/ --delete
 
       - name: Invalidate CloudFront
         run: |
@@ -135,14 +284,11 @@ jobs:
 
       - name: Health checks
         run: |
-          # API health check
           curl -f ${{ secrets.API_URL }}/api/health || exit 1
 
-          # Client health check
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.CLIENT_URL }})
           [ "$HTTP_CODE" = "200" ] || exit 1
 
-          # API smoke test
           curl -f ${{ secrets.API_URL }}/api/button1 | grep -q '"ok":true' || exit 1
 
           echo "✅ All health checks passed"
