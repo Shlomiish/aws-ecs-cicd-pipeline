@@ -203,10 +203,6 @@ jobs:
           docker build -t $ECR_REGISTRY/test-app/consumer:$IMAGE_TAG -t $ECR_REGISTRY/test-app/consumer:latest ./consumer
           docker build -t $ECR_REGISTRY/test-app/client:$IMAGE_TAG   -t $ECR_REGISTRY/test-app/client:latest   ./client
 
-          echo "server_image=$ECR_REGISTRY/test-app/server:$IMAGE_TAG"     >> $GITHUB_OUTPUT
-          echo "consumer_image=$ECR_REGISTRY/test-app/consumer:$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "client_image=$ECR_REGISTRY/test-app/client:$IMAGE_TAG"     >> $GITHUB_OUTPUT
-
       # ==================== TEST IMAGES ====================
       - name: Test server image
         env:
@@ -254,41 +250,20 @@ jobs:
         run: |
           aws s3 sync ./client/dist s3://${{ secrets.S3_BUCKET_NAME }}/ --delete
 
-      # ==================== DEPLOY INFRASTRUCTURE ====================
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.0
-          terraform_wrapper: false
-
-      - name: Create terraform.tfvars
-        working-directory: infra/main
+      # ==================== DEPLOY ECS (AUTO) ====================
+      - name: Force ECS redeploy (server)
         run: |
-          cat > terraform.tfvars << 'EOF'
-          ${{ secrets.TERRAFORM_TFVARS }}
+          aws ecs update-service \
+            --cluster test-app-cluster \
+            --service test-app-server \
+            --force-new-deployment
 
-          server_image = "${{ steps.build.outputs.server_image }}"
-          consumer_image = "${{ steps.build.outputs.consumer_image }}"
-          EOF
-
-      - name: Terraform Init
-        working-directory: infra/main
-        run: terraform init
-
-      - name: Terraform Apply
-        id: terraform
-        working-directory: infra/main
+      - name: Force ECS redeploy (consumer)
         run: |
-          terraform apply -auto-approve
-
-          CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id)
-          echo "cloudfront_distribution_id=$CLOUDFRONT_ID" >> $GITHUB_OUTPUT
-
-      - name: Invalidate CloudFront
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ steps.terraform.outputs.cloudfront_distribution_id }} \
-            --paths "/*"
+          aws ecs update-service \
+            --cluster test-app-cluster \
+            --service test-app-consumer \
+            --force-new-deployment
 
       # ==================== VERIFY DEPLOYMENT ====================
       - name: Wait for ECS deployment
