@@ -255,14 +255,14 @@ jobs:
         run: |
           aws ecs update-service \
             --cluster test-app-cluster \
-            --service test-app-server \
+            --service test-app-server-svc \
             --force-new-deployment
 
       - name: Force ECS redeploy (consumer)
         run: |
           aws ecs update-service \
             --cluster test-app-cluster \
-            --service test-app-consumer \
+            --service test-app-consumer-svc \
             --force-new-deployment
 
       # ==================== VERIFY DEPLOYMENT ====================
