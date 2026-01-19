@@ -1,17 +1,23 @@
+    # ------ ECS TASK DEFINITION (CONSUMER WORKER) ------
+
 resource "aws_ecs_task_definition" "this" {
   family                   = "${var.name}-consumer"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc" # Required for Fargate; each task gets its own ENI
+  requires_compatibilities = ["FARGATE"] # Runs on Fargate (no EC2 host management)
   cpu                      = var.cpu
   memory                   = var.memory
-  execution_role_arn       = var.execution_role_arn
+  execution_role_arn       = var.execution_role_arn # Used by ECS to pull images and ship logs
   task_role_arn            = var.task_role_arn
+
+    # ------ CONTAINER DEFINITIONS (CONSUMER) ------
 
   container_definitions = jsonencode([
   {
     name      = "consumer"
     image     = var.ecr_image
-    essential = true
+    essential = true # Task is considered unhealthy if this container stops
+
+    # ------ LOGGING (CLOUDWATCH LOGS) ------
 
     logConfiguration = {
       logDriver = "awslogs"
@@ -21,6 +27,7 @@ resource "aws_ecs_task_definition" "this" {
         awslogs-stream-prefix = "consumer"
       }
     }
+    # ------ ENVIRONMENT VARIABLES ------
 
     environment = [
       for k, v in var.environment : {
@@ -31,6 +38,7 @@ resource "aws_ecs_task_definition" "this" {
   }
 ])
 }
+    # ------ ECS SERVICE (TASK LIFECYCLE MANAGER) ------
 
 resource "aws_ecs_service" "this" {
   name            = "${var.name}-consumer-svc"

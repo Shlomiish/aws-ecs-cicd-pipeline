@@ -124,13 +124,34 @@ jobs:
             --service test-app-consumer-svc \
             --force-new-deployment
 
+      # ==================== FETCH ALB + CLOUDFRONT DOMAIN NAMES ====================
+
+      - name: Resolve runtime endpoints (ALB + CloudFront)
+        run: |
+          set -e
+
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names test-app-alb \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text)
+
+          echo "API_URL=http://$ALB_DNS" >> $GITHUB_ENV
+          echo "✅ API_URL set to: http://$ALB_DNS"
+
+          CF_DOMAIN=$(aws cloudfront list-distributions \
+            --query 'DistributionList.Items[0].DomainName' \
+            --output text)
+
+          echo "CLIENT_URL=https://$CF_DOMAIN" >> $GITHUB_ENV
+          echo "✅ CLIENT_URL set to: https://$CF_DOMAIN"
+
       # ==================== VERIFY DEPLOYMENT ====================
       - name: Wait for ECS deployment
         run: sleep 60
 
       - name: Health checks
         run: |
-          curl -f ${{ secrets.API_URL }}/api/health || exit 1
+          curl -f "$API_URL/api/health" || exit 1
 
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.CLIENT_URL }})
           [ "$HTTP_CODE" = "200" ] || exit 1
