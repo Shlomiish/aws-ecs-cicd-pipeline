@@ -3,7 +3,7 @@ name: CD
 on:
   push:
     branches:
-      - main
+      - main # trigger deployment only after merge to main
   workflow_dispatch:
 
 env:
@@ -16,8 +16,8 @@ jobs:
 
     steps:
       # ==================== SETUP ====================
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout code # pull repository source code
+        uses: actions/checkout@v4 # command that ready-made that create temporary token
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -28,16 +28,22 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@v2 # step performs a login with a temporary token (docker to ecr) and enables push/pull.
 
       - name: Ensure ECR repositories exist
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
         run: |
           set -e
+
           for repo in test-app/server test-app/consumer test-app/client; do
-            aws ecr describe-repositories --repository-names "$repo" --region "$AWS_REGION" >/dev/null 2>&1 \
-              || aws ecr create-repository --repository-name "$repo" --region "$AWS_REGION" >/dev/null
+            if aws ecr describe-repositories --repository-names "$repo" --region "$AWS_REGION" >/dev/null 2>&1; then
+              echo "ECR repo exists: $repo"
+            else
+              echo "ECR repo missing: $repo"
+              echo "Create it via Terraform before running CD."
+              exit=1
+              fi
           done
 
       - name: Setup Node
@@ -50,28 +56,28 @@ jobs:
         id: build
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ github.sha }} # use commit SHA (commit id) as an immutable image tag for traceability and rollback
         run: |
           docker build -t $ECR_REGISTRY/test-app/server:$IMAGE_TAG   -t $ECR_REGISTRY/test-app/server:latest   ./server
           docker build -t $ECR_REGISTRY/test-app/consumer:$IMAGE_TAG -t $ECR_REGISTRY/test-app/consumer:latest ./consumer
           docker build -t $ECR_REGISTRY/test-app/client:$IMAGE_TAG   -t $ECR_REGISTRY/test-app/client:latest   ./client
 
       # ==================== TEST IMAGES ====================
-      - name: Test server image
+      - name: Test server image (Sanity check)
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker run --rm $ECR_REGISTRY/test-app/server:$IMAGE_TAG node --version
 
-      - name: Test consumer image
+      - name: Test consumer image (Sanity check)
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker run --rm $ECR_REGISTRY/test-app/consumer:$IMAGE_TAG node --version
 
-      - name: Test client image
+      - name: Test client image (Sanity check)
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
@@ -99,12 +105,12 @@ jobs:
           npm install
           npm run build
 
-      - name: Deploy client to S3
+      - name: Deploy client to S3 #Sync the bucket so it looks exactly like the local folder and delete the old files
         run: |
-          aws s3 sync ./client/dist s3://${{ secrets.S3_BUCKET_NAME }}/ --delete
+          aws s3 sync ./client/dist s3://${{ vars.S3_BUCKET_NAME }}/ --delete
 
       # ==================== DEPLOY ECS (AUTO) ====================
-      - name: Force ECS redeploy (server)
+      - name: Force ECS redeploy (server) #The task definition point on latest, so it wont change unless ill do force
         run: |
           aws ecs update-service \
             --cluster test-app-cluster \

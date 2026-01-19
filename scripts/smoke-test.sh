@@ -13,7 +13,7 @@ MINIKUBE_IP=$(minikube ip)
 NODE_PORT=$(kubectl get svc client -n "$NAMESPACE" -o jsonpath='{.spec.ports[0].nodePort}')
 BASE_URL="http://${MINIKUBE_IP}:${NODE_PORT}"
 
-# ---------- NEW: wait for endpoints + http readiness ----------
+# ---------- wait for endpoints + http readiness ----------
 echo "→ waiting for client service endpoints..."
 for i in {1..60}; do
   EP=$(kubectl get endpoints client -n "$NAMESPACE" -o jsonpath='{.subsets[0].addresses[0].ip}' 2>/dev/null || true)
@@ -60,7 +60,7 @@ BUTTON1=$(curl -sf "$BASE_URL/api/button1")
 echo "$BUTTON1" | grep -q '"ok":true' || { echo "✗ api failed"; exit 1; }
 echo "✓ api ok: $BUTTON1"
 
-# ---------- NEW: consumer health check ----------
+# ---------- consumer health check ----------
 echo "→ checking consumer status..."
 CONSUMER_LOG=$(kubectl logs deployment/consumer -n "$NAMESPACE" --tail=10 2>&1)
 if echo "$CONSUMER_LOG" | grep -q "Consumer is running"; then

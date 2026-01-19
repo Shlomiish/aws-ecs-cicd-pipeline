@@ -1,32 +1,40 @@
+# ------ ECS CLUSTER (LOGICAL GROUPING) ------
+
 resource "aws_ecs_cluster" "this" {
   name = "${var.name}-cluster"
 }
 
+# ------ ECS TASK DEFINITION (WHAT TO RUN) ------
+
 resource "aws_ecs_task_definition" "this" {
   family                   = "${var.name}-server"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc" # Required for Fargate; each task gets its own ENI in the VPC
+  requires_compatibilities = ["FARGATE"] # in fargate, each task is a self network unit in the vpc (like host that has container)
   cpu                      = var.cpu
   memory                   = var.memory
   execution_role_arn        = var.execution_role_arn
   task_role_arn             = var.task_role_arn
 
+# ------ CONTAINER DEFINITIONS (SERVER) ------
+
   container_definitions = jsonencode([
   {
     name      = "server"
     image     = var.ecr_image
-    essential = true
+    essential = true # If this container stops, the task is considered failed
 
     portMappings = [
       {
-        containerPort = var.container_port
-        hostPort      = var.container_port
+        containerPort = var.container_port #Port exposed by the container
+        hostPort      = var.container_port #because fargate is like host, so we need to open port in the "host"
         protocol      = "tcp"
       }
     ]
+  
+  # ------ LOGGING (CLOUDWATCH LOGS) ------
 
-    logConfiguration = {
-      logDriver = "awslogs"
+    logConfiguration = { 
+      logDriver = "awslogs" # Sends container stdout/stderr to CloudWatch Logs
       options = {
         awslogs-group         = var.log_group_name
         awslogs-region        = var.region
