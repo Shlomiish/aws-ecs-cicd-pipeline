@@ -31,7 +31,7 @@ resource "aws_ecs_task_definition" "this" {
       }
     ]
   
-  # ------ LOGGING (CLOUDWATCH LOGS) ------
+# ------ LOGGING (CLOUDWATCH LOGS) ------
 
     logConfiguration = { 
       logDriver = "awslogs" # Sends container stdout/stderr to CloudWatch Logs
@@ -42,28 +42,36 @@ resource "aws_ecs_task_definition" "this" {
       }
     }
 
+# ------ ENVIRONMENT VARIABLES ------
+
     environment = [
-      for k, v in var.environment : {
-        name  = k
-        value = v
+      for key, value in var.environment : { #load those env's into the container
+        name  = key
+        value = value
       }
     ]
   }
 ])
 }
 
+# ------ ECS SERVICE (TASK LIFECYCLE MANAGER) ------
+
 resource "aws_ecs_service" "this" {
   name            = "${var.name}-server-svc"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.this.arn
+  cluster         = aws_ecs_cluster.this.id #in which cluster the service will be
+  task_definition = aws_ecs_task_definition.this.arn #according to which task definition the service will run
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
+
+# ------ NETWORKING ------
 
   network_configuration {
     subnets         = var.subnet_ids
     security_groups = [var.security_group_id]
     assign_public_ip = false
   }
+
+# ------ LOAD BALANCER ATTACHMENT (ALB -> TARGET GROUP) ------
 
   load_balancer {
     target_group_arn = var.target_group_arn

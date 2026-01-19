@@ -1,18 +1,24 @@
+# ------ CLOUDFRONT ORIGIN ACCESS CONTROL (S3 PRIVATE ACCESS) ------
+
 resource "aws_cloudfront_origin_access_control" "oac" {
   name                              = "${var.name}-oac"
-  description                       = "OAC for S3 origin"
+  description                       = "OAC for S3 origin" #OAC (origin access control (old - OAI)) type for permission to S3  
   origin_access_control_origin_type = "s3"
-  signing_behavior                  = "always"
+  signing_behavior                  = "always" # only sign requests to S3
   signing_protocol                  = "sigv4"
 }
+
+# ------ CLOUDFRONT DISTRIBUTION (S3 CLIENT + ALB API) ------
 
 resource "aws_cloudfront_distribution" "this" {
   enabled             = true
   default_root_object = "index.html"
 
+  # ------ ORIGINS ------
+
   origin {
     domain_name              = var.bucket_regional_domain_name
-    origin_id                = "s3-client"
+    origin_id                = "s3-client" #the id inside the cloudfront distribution (for knowing where to send the data)
     origin_access_control_id = aws_cloudfront_origin_access_control.oac.id
   }
 
@@ -27,6 +33,8 @@ resource "aws_cloudfront_distribution" "this" {
       origin_ssl_protocols   = ["TLSv1.2"]
     }
   }
+  
+  # ------ PATH-BASED ROUTING ------
 
   # Default behavior -> S3 (client)
   default_cache_behavior {
@@ -67,16 +75,22 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
+  # ------ GEO RESTRICTIONS ------
+
   restrictions {
     geo_restriction {
       restriction_type = "none"
     }
   }
 
+  # ------ TLS CERTIFICATE ------
+
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = true # Uses *.cloudfront.net certificate (no custom domain)
   }
 }
+
+# ------ S3 BUCKET POLICY (ALLOW CLOUDFRONT OAC) ------
 
 # S3 bucket policy to allow CloudFront OAC
 data "aws_iam_policy_document" "bucket_policy" {

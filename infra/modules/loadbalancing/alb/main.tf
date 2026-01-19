@@ -1,9 +1,12 @@
+# ------ SECURITY GROUPS (EDGE + APP) ------
+
 # ALB Security Group: allow inbound HTTP from anywhere
 resource "aws_security_group" "alb" {
   name        = "${var.name}-alb-sg"
   description = "ALB security group"
   vpc_id      = var.vpc_id
 
+#Public entrypoint: allow HTTP from the internet (for health checks in tests)
   ingress {
     description = "HTTP from internet"
     from_port   = 80
@@ -27,6 +30,7 @@ resource "aws_security_group" "ecs" {
   description = "ECS tasks security group"
   vpc_id      = var.vpc_id
 
+# Only the ALB is allowed to reach the service port (prevents direct internet access)
   ingress {
     description     = "From ALB to server"
     from_port       = var.server_port
@@ -35,6 +39,7 @@ resource "aws_security_group" "ecs" {
     security_groups = [aws_security_group.alb.id]
   }
 
+# Outbound is open to allow image pulls (ECR), external APIs, and dependencies (via NAT/endpoints)
   egress {
     description = "All outbound"
     from_port   = 0
@@ -44,6 +49,8 @@ resource "aws_security_group" "ecs" {
   }
 }
 
+# ------ APPLICATION LOAD BALANCER (PUBLIC) ------
+
 resource "aws_lb" "this" {
   name               = "${var.name}-alb"
   load_balancer_type = "application"
@@ -52,6 +59,8 @@ resource "aws_lb" "this" {
   security_groups = [aws_security_group.alb.id]
   subnets         = var.public_subnet_ids
 }
+
+# ------ TARGET GROUP (ECS TASKS AS IP TARGETS) ------
 
 resource "aws_lb_target_group" "server" {
   name        = "${var.name}-server-tg"
@@ -70,6 +79,8 @@ resource "aws_lb_target_group" "server" {
 }
 
 }
+
+# ------ LISTENER (HTTP ENTRYPOINT) ------
 
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
